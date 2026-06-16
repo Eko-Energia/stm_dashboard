@@ -1,0 +1,11 @@
+# Build artifacts
+Debug/
+Release/
+bin/
+obj/
+
+# User specific settings
+.settings/
+*.launch
+*.uvgui.* (for Keil)
+*.bak
