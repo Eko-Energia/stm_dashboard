@@ -1,23 +1,157 @@
 #include "main.h"
 #include "can_driver.h"
+#include "led_driver.h"
 
 /*
 * External variables
 */
 extern CAN_HandleTypeDef hcan1;
+extern ADC_HandleTypeDef hadc1;
 
 /*
 * CAN
 */
-struct CAN_scheduledMsgList canScheduler;
+struct CAN_scheduledMsgList canScheduler =
+{
+    .size = 0,
+    .txMailbox = 0
+};
+struct CAN_IncomingMsgList canRxBuffer =
+{
+    .head = 0,
+    .tail = 0,
+    .count = 0,
+    .receiveFlag = 0
+};
 
+/*
+* ADC
+*/
+#define ADC_CHANNELS 4
+#define ADC_SAMPLES 10
+
+static uint16_t ADC_buffer[ADC_CHANNELS] = {0};
+static float ADC_Voltage[ADC_CHANNELS] = {0};
+
+static volatile uint8_t ADC_ConvCplt = 0;
+
+/*
+* LEDs
+*/
+struct LED LED_RED = {LED_OFF, LED_RED_GPIO_Port, LED_RED_Pin, 0};
+struct LED LED_GREEN = {LED_OFF, LED_GREEN_GPIO_Port, LED_GREEN_Pin, 0};
+
+/*
+* Private functions prototypes
+*/
+void ProcessADC1Data(void);
+
+/*
+* Callbacks
+*/
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+    if (hcan == &hcan1)
+    {
+        CAN_RxHeaderTypeDef header;
+        uint8_t data[CAN_MAX_DLC];
+        if(HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &header, data) != HAL_OK)
+        {
+            Error_Handler();
+        }
+
+        if(CAN_AddIncomingMsg(&canRxBuffer, &header, data) != HAL_OK)
+        {
+            Error_Handler();
+        }
+    }
+}
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+    if(hadc == &hadc1)
+    {
+        ADC_ConvCplt++;
+    }
+}
 
 void app_main(void)
 {
-
     CAN_Init(&hcan1);
+    
+    if (HAL_ADCEx_Calibration_Start(&hadc1) != HAL_OK)
+    {
+        Error_Handler();
+    }
+    HAL_ADC_Start_DMA(&hadc1, (uint32_t *)ADC_buffer, ADC_CHANNELS);
+
+    LED_ChangeState(&LED_GREEN, LED_BLINK);
     while (1)
     {
-        CAN_Handle(&hcan1);
+        
+        if(ADC_ConvCplt)
+        {
+            ADC_ConvCplt = 0;
+            ProcessADC1Data();
+        }
+
+        CAN_HandleScheduled(&hcan1, &canScheduler);
+        LED_Handle(&LED_GREEN);
+        LED_Handle(&LED_RED);
+    }
+}
+
+void ProcessADC1Data(void)
+{
+    const float ADC_vRef = 3.3f; // Reference voltage
+    const float ADC_resolution = 4096.0f; // 12-bit ADC resolution
+    static uint8_t sampleIndex = 0;
+    static uint8_t samplesCollected = 0;
+    static uint16_t ADC_Samples[ADC_CHANNELS][ADC_SAMPLES] = {0};
+    uint16_t ADC_snapshot[ADC_CHANNELS] = {0};
+    
+    // create a snapshot of the ADC values to avoid race conditions
+    for(uint8_t channel = 0; channel < ADC_CHANNELS; channel++)
+    {
+        ADC_snapshot[channel] = ADC_buffer[channel] & 0x0FFFu;
+    }
+
+    for (uint8_t channel = 0; channel < ADC_CHANNELS; channel++)
+    {
+        ADC_Samples[channel][sampleIndex] = ADC_snapshot[channel];
+
+        if(samplesCollected < ADC_SAMPLES)
+        {
+            continue;
+        }
+
+        // Calculate the average of the samples for each channel (remove max and min for better accuracy)
+        uint32_t sum = 0;
+        uint16_t min = 0xFFFFu;
+        uint16_t max = 0;
+        
+        for (uint8_t i = 0; i < ADC_SAMPLES; i++)
+        {
+        	uint16_t sample = ADC_Samples[channel][i];
+            sum += sample;
+            if (sample < min) min = sample;
+            if (sample > max) max = sample;
+        }
+
+        float average = 0.0f;
+		sum -= (min + max);
+        average = (float) sum / (ADC_SAMPLES - 2); 
+
+        ADC_Voltage[channel] = average * (ADC_vRef/ ADC_resolution);
+    }
+
+    if(samplesCollected < ADC_SAMPLES)
+    {
+        samplesCollected++;
+    }
+    sampleIndex++;
+    if (sampleIndex >= ADC_SAMPLES)
+    {
+        sampleIndex = 0;
     }
 }
