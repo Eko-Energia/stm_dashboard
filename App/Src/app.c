@@ -8,8 +8,6 @@
 */
 extern CAN_HandleTypeDef hcan1;
 extern ADC_HandleTypeDef hadc1;
-// TODO remove
-extern UART_HandleTypeDef huart2;
 
 /*
 * CAN
@@ -76,13 +74,6 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
     {
         ADC_ConvCplt++;
     }
-}
-
-// TODO remove
-int __io_putchar(int ch)
-{
-    HAL_UART_Transmit(&huart2, (uint8_t*)&ch, 1, HAL_MAX_DELAY);
-    return 1;
 }
 
 void app_main(void)
