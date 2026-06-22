@@ -96,8 +96,7 @@ void app_main(void)
             ProcessADC1Data();
         }
 
-        STALK_lState_t stalking = getStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
-        printf("%d\r\n", (uint8_t) stalking);
+        STALK_lState_t stalkState = getStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
 
         CAN_HandleScheduled(&hcan1, &canScheduler);
         LED_Handle(&LED_GREEN);

@@ -36,31 +36,51 @@ STALK_lState_t getStalkState(float pin0Voltage, float pin1Voltage, float pin2vol
     STALK_pinState_t pin2State = getPinState(pin2voltage);
 
     uint8_t state = 0;
-    // ONCE/CONSTANT blinking
-    state |= (pin0State == STALK_PIN_VCC) ? 0b1000 : 0;
 
-    // R/L BLINK
-    if(pin1State != STALK_PIN_MID)
+    switch (pin0State) 
     {
-        if(pin1State == STALK_PIN_MID_HIGH)
-        {
-            // L_BLINK
-            state |= 0b0001;
-        }
-        else if(pin1State == STALK_PIN_LOW)
-        {
-            // R_BLINK
-            state |= 0b0010;
-        }
+        case STALK_PIN_VCC:
+            state |= 0b1000; // CONSTANT
+            break;
+        case STALK_PIN_GND:
+            state |= 0b0000; // ONCE
+            break;
+        default:
+            // pin state not defined, don't change the state
+            break;
     }
 
-    // HB
-    state |= (pin2State != STALK_PIN_HIGH) ? 0b0100 : 0;
-
-    // NO MATCH
-    if (state == 0)
+    switch (pin1State) 
     {
-        state = NORMAL;
+        case STALK_PIN_MID_HIGH:
+            state |= 0b0001; // L_BLINK
+            break;
+        case STALK_PIN_LOW:
+            state |= 0b0010; // R_BLINK
+            break;
+        default:
+            // pin state not defined, don't change the state
+            break;
+    }
+
+    switch (pin2State)
+    {
+        case STALK_PIN_HIGH:
+            state |= 0b0000; // NOT_HB
+            break;
+        case STALK_PIN_MID:
+        case STALK_PIN_MID_HIGH:
+            state |= 0b0100; // HB
+            break;
+        default:
+            // pin state not defined, don't change the state
+            break;
+    }
+
+    if (state == 0) 
+    {
+        // This state only happens in the begining of the program when adc waits for first samples
+        state = 0b1000; // Default to NORMAL if no valid state is detected
     }
 
     return (STALK_lState_t) state;

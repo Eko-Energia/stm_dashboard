@@ -408,8 +408,7 @@
   * @param  hadc: ADC handle
   * @retval HAL status
   */
-HAL_StatusTypeDef HAL_ADC_Init(ADC_HandleTypeDef* hadc)
-{
+HAL_StatusTypeDef HAL_ADC_Init(ADC_HandleTypeDef* hadc){
   HAL_StatusTypeDef tmp_hal_status = HAL_OK;
   uint32_t tmp_cr1 = 0U;
   uint32_t tmp_cr2 = 0U;
