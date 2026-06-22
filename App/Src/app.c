@@ -1,12 +1,15 @@
 #include "main.h"
 #include "can_driver.h"
 #include "led_driver.h"
+#include "stalk.h"
 
 /*
 * External variables
 */
 extern CAN_HandleTypeDef hcan1;
 extern ADC_HandleTypeDef hadc1;
+// TODO remove
+extern UART_HandleTypeDef huart2;
 
 /*
 * CAN
@@ -75,6 +78,13 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
     }
 }
 
+// TODO remove
+int __io_putchar(int ch)
+{
+    HAL_UART_Transmit(&huart2, (uint8_t*)&ch, 1, HAL_MAX_DELAY);
+    return 1;
+}
+
 void app_main(void)
 {
     CAN_Init(&hcan1);
@@ -94,6 +104,9 @@ void app_main(void)
             ADC_ConvCplt = 0;
             ProcessADC1Data();
         }
+
+        STALK_lState_t stalking = getStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
+        printf("%d\r\n", (uint8_t) stalking);
 
         CAN_HandleScheduled(&hcan1, &canScheduler);
         LED_Handle(&LED_GREEN);
