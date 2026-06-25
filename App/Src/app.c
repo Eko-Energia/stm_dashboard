@@ -2,6 +2,7 @@
 #include "can_driver.h"
 #include "led_driver.h"
 #include "stalk.h"
+#include "CAN_DB.h"
 
 /*
 * External variables
@@ -25,6 +26,8 @@ struct CAN_IncomingMsgList canRxBuffer =
     .receiveFlag = 0
 };
 
+struct Dashboard_Lights_t CAN_lightsData;
+
 /*
 * ADC
 */
@@ -46,6 +49,7 @@ struct LED LED_GREEN = {LED_OFF, LED_GREEN_GPIO_Port, LED_GREEN_Pin, 0};
 * Private functions prototypes
 */
 void ProcessADC1Data(void);
+void CAN_SendLightsFrame(struct Dashboard_Lights_t *lightsData, STALK_lState_t stalkState);
 
 /*
 * Callbacks
@@ -79,12 +83,16 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 void app_main(void)
 {
     CAN_Init(&hcan1);
+
+    STALK_lState_t stalkState = getStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
+    Dashboard_Lights_init(&CAN_lightsData);
     
     if (HAL_ADCEx_Calibration_Start(&hadc1) != HAL_OK)
     {
         Error_Handler();
     }
     HAL_ADC_Start_DMA(&hadc1, (uint32_t *)ADC_buffer, ADC_CHANNELS);
+
 
     LED_ChangeState(&LED_GREEN, LED_BLINK);
     while (1)
@@ -96,7 +104,13 @@ void app_main(void)
             ProcessADC1Data();
         }
 
-        STALK_lState_t stalkState = getStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
+        STALK_lState_t newStalkState = getStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
+        if(newStalkState != stalkState)
+        {
+        	stalkState = newStalkState;
+            // SEND DASHBOARD_LIGHTS_FRAME_ID
+        	CAN_SendLightsFrame(&CAN_lightsData, stalkState);
+        }
 
         CAN_HandleScheduled(&hcan1, &canScheduler);
         LED_Handle(&LED_GREEN);
@@ -156,5 +170,48 @@ void ProcessADC1Data(void)
     if (sampleIndex >= ADC_SAMPLES)
     {
         sampleIndex = 0;
+    }
+}
+
+void CAN_SendLightsFrame(struct Dashboard_Lights_t *lightsData, STALK_lState_t stalkState)
+{
+    switch(stalkState)
+    {
+        case NORMAL:
+            lightsData->TurnSignal_Left = DASHBOARD_LIGHTS_TURNSIGNAL_LEFT_OFF_CHOICE;
+            lightsData->TurnSignal_Right = DASHBOARD_LIGHTS_TURNSIGNAL_RIGHT_OFF_CHOICE;
+            lightsData->Headlights = DASHBOARD_LIGHTS_HEADLIGHTS_OFF_CHOICE;
+        break;
+        case L_BLINK_ONCE:
+            lightsData->TurnSignal_Left = DASHBOARD_LIGHTS_TURNSIGNAL_LEFT_ONCE_CHOICE;
+            break;
+        case L_BLINK:
+            lightsData->TurnSignal_Left = DASHBOARD_LIGHTS_TURNSIGNAL_LEFT_ON_CHOICE;
+            break;
+        case R_BLINK_ONCE:
+            lightsData->TurnSignal_Right = DASHBOARD_LIGHTS_TURNSIGNAL_RIGHT_ONCE_CHOICE;
+            break;
+        case R_BLINK:
+            lightsData->TurnSignal_Right = DASHBOARD_LIGHTS_TURNSIGNAL_RIGHT_ON_CHOICE;
+            break;
+        case HB_ONCE:
+        case HB:
+            lightsData->Headlights = DASHBOARD_LIGHTS_HEADLIGHTS_HIGHBEAMS_CHOICE;
+            break;
+    }
+
+    uint8_t data[DASHBOARD_LIGHTS_LENGTH];
+    Dashboard_Lights_pack(data, lightsData, DASHBOARD_LIGHTS_LENGTH);
+
+    CAN_TxHeaderTypeDef header = {
+        .StdId = DASHBOARD_LIGHTS_FRAME_ID,
+        .IDE = CAN_ID_STD,
+        .RTR = CAN_RTR_DATA,
+        .DLC = DASHBOARD_LIGHTS_LENGTH
+    };
+
+    if(HAL_CAN_AddTxMessage(&hcan1, &header, data, &canScheduler.txMailbox) != HAL_OK)
+    {
+        Error_Handler();
     }
 }
