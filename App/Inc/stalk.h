@@ -11,7 +11,7 @@
         bit 3 (0/1): ONCE/CONSTANT
 */
 typedef enum {
-    NORMAL = 0b1000, // 8
+    L_NORMAL = 0b1000, // 8
     L_BLINK_ONCE = 0b0001, // 1
     L_BLINK = 0b1001, // 9
     R_BLINK_ONCE = 0b0010, // 2
@@ -20,6 +20,19 @@ typedef enum {
     HB = 0b1100 // 12
 } STALK_lState_t;
 
-STALK_lState_t getStalkState(float pin0Voltage, float pin1Voltage, float pin2voltage);
+typedef enum {
+    R_NORMAL = 0,
+    WIPE_ONCE = 1,
+    WIPE_INTERVAL = 2,
+    WIPE_LOW = 3,
+    WIPE_HIGH = 4,
+    BACK_WIPE = 5,
+    BACK_FLUID = 6,
+    FLUID = 7
+} STALK_rState_t;
+
+STALK_lState_t getLeftStalkState(float pin0Voltage, float pin1Voltage, float pin2voltage);
+
+STALK_rState_t getRightStalkState(float pin0Voltage, float pin1Voltage);
 
 #endif // __STALK_H__

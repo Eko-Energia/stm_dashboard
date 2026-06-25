@@ -29,7 +29,7 @@ static STALK_pinState_t getPinState(float voltage) {
     return STALK_PIN_GND; // Default to GND if out of range
 }
 
-STALK_lState_t getStalkState(float pin0Voltage, float pin1Voltage, float pin2voltage)
+STALK_lState_t getLeftStalkState(float pin0Voltage, float pin1Voltage, float pin2voltage)
 {
     STALK_pinState_t pin0State = getPinState(pin0Voltage);
     STALK_pinState_t pin1State = getPinState(pin1Voltage);
@@ -84,6 +84,48 @@ STALK_lState_t getStalkState(float pin0Voltage, float pin1Voltage, float pin2vol
     }
 
     return (STALK_lState_t) state;
+}
+
+STALK_rState_t getRightStalkState(float pin0Voltage, float pin1Voltage)
+{
+    STALK_pinState_t pin0State = getPinState(pin0Voltage);
+    STALK_pinState_t pin1State = getPinState(pin1Voltage);
+    
+    STALK_rState_t state = R_NORMAL;
+    
+    switch (pin0State)
+    {
+        case STALK_PIN_LOW:
+            state = WIPE_ONCE;
+        break;
+        case STALK_PIN_MID_HIGH:
+            state = WIPE_INTERVAL;
+        break;
+        case STALK_PIN_HIGH:
+            state = WIPE_LOW;
+        break;
+        default:
+            // pin state not defined, don't change the state
+            break;
+    }
+
+    switch (pin1State)
+    {
+        case STALK_PIN_MID:
+            state = FLUID;
+        break;
+        case STALK_PIN_MID_HIGH:
+            state = BACK_WIPE;
+        break;
+        case STALK_PIN_LOW:
+            state = BACK_FLUID;
+        break;
+        default:
+            // pin state not defined, don't change the state
+        break;
+    }
+
+    return state;
 }
 
 

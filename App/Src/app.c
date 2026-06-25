@@ -31,7 +31,7 @@ struct Dashboard_Lights_t CAN_lightsData;
 /*
 * ADC
 */
-#define ADC_CHANNELS 4
+#define ADC_CHANNELS 6
 #define ADC_SAMPLES 10
 
 static uint16_t ADC_buffer[ADC_CHANNELS] = {0};
@@ -49,7 +49,7 @@ struct LED LED_GREEN = {LED_OFF, LED_GREEN_GPIO_Port, LED_GREEN_Pin, 0};
 * Private functions prototypes
 */
 void ProcessADC1Data(void);
-void CAN_SendLightsFrame(struct Dashboard_Lights_t *lightsData, STALK_lState_t stalkState);
+void CAN_SendLightsFrame(struct Dashboard_Lights_t *lightsData, STALK_lState_t stalkLeftState);
 
 /*
 * Callbacks
@@ -84,7 +84,8 @@ void app_main(void)
 {
     CAN_Init(&hcan1);
 
-    STALK_lState_t stalkState = getStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
+    STALK_lState_t stalkLeftState = getLeftStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
+    STALK_rState_t stalkRightState = getRightStalkState(ADC_Voltage[3], ADC_Voltage[4]);
     Dashboard_Lights_init(&CAN_lightsData);
     
     if (HAL_ADCEx_Calibration_Start(&hadc1) != HAL_OK)
@@ -104,13 +105,23 @@ void app_main(void)
             ProcessADC1Data();
         }
 
-        STALK_lState_t newStalkState = getStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
-        if(newStalkState != stalkState)
+        STALK_lState_t newStalkLeftState = getLeftStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
+        if(newStalkLeftState != stalkLeftState)
         {
-        	stalkState = newStalkState;
+        	stalkLeftState = newStalkLeftState;
             // SEND DASHBOARD_LIGHTS_FRAME_ID
-        	CAN_SendLightsFrame(&CAN_lightsData, stalkState);
+        	CAN_SendLightsFrame(&CAN_lightsData, stalkLeftState);
         }
+
+        STALK_rState_t newStalkRightState = getRightStalkState(ADC_Voltage[3], ADC_Voltage[4]);
+        if(newStalkRightState != stalkRightState)
+        {
+            stalkRightState = newStalkRightState;
+            // SEND DASHBOARD_WIPERS_FRAME_ID
+            // NOT IMPLEMENTED BCS NOT USED YET
+        }
+
+
 
         CAN_HandleScheduled(&hcan1, &canScheduler);
         LED_Handle(&LED_GREEN);
@@ -173,11 +184,11 @@ void ProcessADC1Data(void)
     }
 }
 
-void CAN_SendLightsFrame(struct Dashboard_Lights_t *lightsData, STALK_lState_t stalkState)
+void CAN_SendLightsFrame(struct Dashboard_Lights_t *lightsData, STALK_lState_t stalkLeftState)
 {
-    switch(stalkState)
+    switch(stalkLeftState)
     {
-        case NORMAL:
+        case L_NORMAL:
             lightsData->TurnSignal_Left = DASHBOARD_LIGHTS_TURNSIGNAL_LEFT_OFF_CHOICE;
             lightsData->TurnSignal_Right = DASHBOARD_LIGHTS_TURNSIGNAL_RIGHT_OFF_CHOICE;
             lightsData->Headlights = DASHBOARD_LIGHTS_HEADLIGHTS_OFF_CHOICE;
