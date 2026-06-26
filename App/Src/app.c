@@ -31,7 +31,7 @@ struct Dashboard_Lights_t CAN_lightsData;
 /*
 * ADC
 */
-#define ADC_CHANNELS 6
+#define ADC_CHANNELS 7
 #define ADC_SAMPLES 10
 
 static uint16_t ADC_buffer[ADC_CHANNELS] = {0};
@@ -225,4 +225,26 @@ void CAN_SendLightsFrame(struct Dashboard_Lights_t *lightsData, STALK_lState_t s
     {
         Error_Handler();
     }
+}
+
+void CAN_SendWipersFrame(struct Dashboard_Wipers_t *wipersData, STALK_rState_t stalkRightState)
+{
+    Dashboard_Wipers_init(wipersData);
+    wipersData->Status = stalkRightState;
+    
+    uint8_t data[DASHBOARD_WIPERS_LENGTH];
+    Dashboard_Wipers_pack(data, wipersData, DASHBOARD_WIPERS_LENGTH);
+
+    CAN_TxHeaderTypeDef header = {
+        .StdId = DASHBOARD_WIPERS_FRAME_ID,
+        .IDE = CAN_ID_STD,
+        .RTR = CAN_RTR_DATA,
+        .DLC = DASHBOARD_WIPERS_LENGTH
+    };
+
+    if(HAL_CAN_AddTxMessage(&hcan1, &header, data, &canScheduler.txMailbox) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
 }

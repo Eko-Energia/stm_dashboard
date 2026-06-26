@@ -49,7 +49,7 @@ void MX_ADC1_Init(void)
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 6;
+  hadc1.Init.NbrOfConversion = 7;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
@@ -109,6 +109,15 @@ void MX_ADC1_Init(void)
   {
     Error_Handler();
   }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Rank = ADC_REGULAR_RANK_7;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
@@ -131,6 +140,7 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* adcHandle)
     __HAL_RCC_GPIOC_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
     /**ADC1 GPIO Configuration
+    PA0-WKUP     ------> ADC1_IN0
     PA2     ------> ADC1_IN2
     PA4     ------> ADC1_IN4
     PA5     ------> ADC1_IN5
@@ -138,7 +148,8 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* adcHandle)
     PC4     ------> ADC1_IN14
     PB0     ------> ADC1_IN8
     */
-    GPIO_InitStruct.Pin = PRND_PIN_Pin|PM_PIN1_Pin|PM_PIN3_Pin|LM_PIN1_Pin;
+    GPIO_InitStruct.Pin = LIGHT_SWITCH_PIN_Pin|PRND_PIN_Pin|PM_PIN1_Pin|PM_PIN3_Pin
+                          |LM_PIN1_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
@@ -185,6 +196,7 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* adcHandle)
     __HAL_RCC_ADC1_CLK_DISABLE();
 
     /**ADC1 GPIO Configuration
+    PA0-WKUP     ------> ADC1_IN0
     PA2     ------> ADC1_IN2
     PA4     ------> ADC1_IN4
     PA5     ------> ADC1_IN5
@@ -192,7 +204,8 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* adcHandle)
     PC4     ------> ADC1_IN14
     PB0     ------> ADC1_IN8
     */
-    HAL_GPIO_DeInit(GPIOA, PRND_PIN_Pin|PM_PIN1_Pin|PM_PIN3_Pin|LM_PIN1_Pin);
+    HAL_GPIO_DeInit(GPIOA, LIGHT_SWITCH_PIN_Pin|PRND_PIN_Pin|PM_PIN1_Pin|PM_PIN3_Pin
+                          |LM_PIN1_Pin);
 
     HAL_GPIO_DeInit(LM_PIN4_GPIO_Port, LM_PIN4_Pin);
 
