@@ -11,6 +11,13 @@ static float pinVoltageRange [PIN_STATES][2] = {
     {2.46, 3.3}, // VCC
 };
 
+static float gearSelectorVoltageRange [4][2] = {
+    {0, 0.55}, // P
+    {0.551, 1.66}, // R
+    {1.661, 2.76}, // N
+    {2.761, 3.3} // D
+};
+
 typedef enum {
     STALK_PIN_GND = 0,
     STALK_PIN_LOW = 1,
@@ -128,6 +135,15 @@ STALK_rState_t getRightStalkState(float pin0Voltage, float pin1Voltage)
     return state;
 }
 
+GearSelector_State_t getGearSelectorState(float voltage) {
+    // iterate through 4 gear selector states
+    for (int i = 0; i < 4; i++) {
+        if (voltage >= gearSelectorVoltageRange[i][0] && voltage <= gearSelectorVoltageRange[i][1]) {
+            return (GearSelector_State_t) i;
+        }
+    }
+    return GearSelector_P; // Default to park if out of range
+}
 
 
 

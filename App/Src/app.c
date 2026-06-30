@@ -85,7 +85,12 @@ void app_main(void)
     CAN_Init(&hcan1);
 
     STALK_lState_t stalkLeftState = getLeftStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
+    STALK_lState_t newStalkLeftState = getLeftStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
     STALK_rState_t stalkRightState = getRightStalkState(ADC_Voltage[3], ADC_Voltage[4]);
+    STALK_rState_t newStalkRightState = getRightStalkState(ADC_Voltage[3], ADC_Voltage[4]);
+    GearSelector_State_t gearSelectorState = getGearSelectorState(ADC_Voltage[6]);
+    GearSelector_State_t newGearSelectorState = getGearSelectorState(ADC_Voltage[6]);
+
     Dashboard_Lights_init(&CAN_lightsData);
     
     if (HAL_ADCEx_Calibration_Start(&hadc1) != HAL_OK)
@@ -105,7 +110,6 @@ void app_main(void)
             ProcessADC1Data();
         }
 
-        STALK_lState_t newStalkLeftState = getLeftStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
         if(newStalkLeftState != stalkLeftState)
         {
         	stalkLeftState = newStalkLeftState;
@@ -113,15 +117,18 @@ void app_main(void)
         	CAN_SendLightsFrame(&CAN_lightsData, stalkLeftState);
         }
 
-        STALK_rState_t newStalkRightState = getRightStalkState(ADC_Voltage[3], ADC_Voltage[4]);
         if(newStalkRightState != stalkRightState)
         {
             stalkRightState = newStalkRightState;
             // SEND DASHBOARD_WIPERS_FRAME_ID
             // NOT IMPLEMENTED BCS NOT USED YET
+            // CAN_SendWipersFrame(&CAN_wipersData, stalkRightState);
         }
 
+        if(newGearSelectorState != gearSelectorState)
+        {
 
+        }
 
         CAN_HandleScheduled(&hcan1, &canScheduler);
         LED_Handle(&LED_GREEN);
