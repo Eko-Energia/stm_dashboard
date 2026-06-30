@@ -27,6 +27,7 @@ struct CAN_IncomingMsgList canRxBuffer =
 };
 
 struct Dashboard_Lights_t CAN_lightsData;
+struct Dashboard_Control_t CAN_controlData;
 
 /*
 * ADC
@@ -50,6 +51,7 @@ struct LED LED_GREEN = {LED_OFF, LED_GREEN_GPIO_Port, LED_GREEN_Pin, 0};
 */
 void ProcessADC1Data(void);
 void CAN_SendLightsFrame(struct Dashboard_Lights_t *lightsData, STALK_lState_t stalkLeftState);
+void CAN_SendControlFrame(struct Dashboard_Control_t *controlData, GearSelector_State_t gearSelectorState);
 
 /*
 * Callbacks
@@ -92,6 +94,7 @@ void app_main(void)
     GearSelector_State_t newGearSelectorState = getGearSelectorState(ADC_Voltage[6]);
 
     Dashboard_Lights_init(&CAN_lightsData);
+    Dashboard_Control_init(&CAN_controlData);
     
     if (HAL_ADCEx_Calibration_Start(&hadc1) != HAL_OK)
     {
@@ -108,6 +111,9 @@ void app_main(void)
         {
             ADC_ConvCplt = 0;
             ProcessADC1Data();
+            newStalkLeftState = getLeftStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
+            newStalkRightState = getRightStalkState(ADC_Voltage[3], ADC_Voltage[4]);
+            newGearSelectorState = getGearSelectorState(ADC_Voltage[6]);
         }
 
         if(newStalkLeftState != stalkLeftState)
@@ -127,7 +133,8 @@ void app_main(void)
 
         if(newGearSelectorState != gearSelectorState)
         {
-
+            gearSelectorState = newGearSelectorState;
+            CAN_SendControlFrame(&CAN_controlData, gearSelectorState);
         }
 
         CAN_HandleScheduled(&hcan1, &canScheduler);
@@ -188,6 +195,40 @@ void ProcessADC1Data(void)
     if (sampleIndex >= ADC_SAMPLES)
     {
         sampleIndex = 0;
+    }
+}
+
+void CAN_SendControlFrame(struct Dashboard_Control_t *controlData, GearSelector_State_t gearSelectorState)
+{
+    switch(gearSelectorState)
+    {
+        case GearSelector_P:
+            controlData->PRND = DASHBOARD_CONTROL_PRND_P_CHOICE;
+        break;
+        case GearSelector_R:
+            controlData->PRND = DASHBOARD_CONTROL_PRND_R_CHOICE;
+        break;
+        case GearSelector_N:
+            controlData->PRND = DASHBOARD_CONTROL_PRND_N_CHOICE;
+        break;
+        case GearSelector_D:
+            controlData->PRND = DASHBOARD_CONTROL_PRND_D_CHOICE;
+        break;
+    }
+
+    uint8_t data[DASHBOARD_CONTROL_LENGTH];
+    Dashboard_Control_pack(data, controlData, DASHBOARD_CONTROL_LENGTH);
+
+    CAN_TxHeaderTypeDef header = {
+        .StdId = DASHBOARD_CONTROL_FRAME_ID,
+        .IDE = CAN_ID_STD,
+        .RTR = CAN_RTR_DATA,
+        .DLC = DASHBOARD_CONTROL_LENGTH
+    };
+
+    if(HAL_CAN_AddTxMessage(&hcan1, &header, data, &canScheduler.txMailbox) != HAL_OK)
+    {
+        Error_Handler();
     }
 }
 
