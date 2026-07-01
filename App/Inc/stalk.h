@@ -32,10 +32,10 @@ typedef enum {
 } STALK_rState_t;
 
 typedef enum {
-    GearSelector_P = 0,
-    GearSelector_R = 1,
-    GearSelector_N = 2,
-    GearSelector_D = 3
+    GearSelector_P = 3,
+    GearSelector_R = 2,
+    GearSelector_N = 1,
+    GearSelector_D = 0
 } GearSelector_State_t;
 
 STALK_lState_t getLeftStalkState(float pin0Voltage, float pin1Voltage, float pin2voltage);

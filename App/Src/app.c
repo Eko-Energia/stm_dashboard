@@ -86,12 +86,13 @@ void app_main(void)
 {
     CAN_Init(&hcan1);
 
-    STALK_lState_t stalkLeftState = getLeftStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
-    STALK_lState_t newStalkLeftState = getLeftStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
-    STALK_rState_t stalkRightState = getRightStalkState(ADC_Voltage[3], ADC_Voltage[4]);
-    STALK_rState_t newStalkRightState = getRightStalkState(ADC_Voltage[3], ADC_Voltage[4]);
-    GearSelector_State_t gearSelectorState = getGearSelectorState(ADC_Voltage[6]);
-    GearSelector_State_t newGearSelectorState = getGearSelectorState(ADC_Voltage[6]);
+    // Initialize states
+    STALK_lState_t stalkLeftState = L_NORMAL;
+    STALK_lState_t newStalkLeftState = L_NORMAL;
+    STALK_rState_t stalkRightState = R_NORMAL;
+    STALK_rState_t newStalkRightState = R_NORMAL;
+    GearSelector_State_t gearSelectorState = GearSelector_P;
+    GearSelector_State_t newGearSelectorState = GearSelector_P;
 
     Dashboard_Lights_init(&CAN_lightsData);
     Dashboard_Control_init(&CAN_controlData);
