@@ -3,6 +3,7 @@
 #include "led_driver.h"
 #include "stalk.h"
 #include "CAN_DB.h"
+#include "app_can.h"
 
 /*
 * External variables
@@ -50,8 +51,7 @@ struct LED LED_GREEN = {LED_OFF, LED_GREEN_GPIO_Port, LED_GREEN_Pin, 0};
 * Private functions prototypes
 */
 uint8_t ProcessADC1Data(void);
-void CAN_SendLightsFrame(struct Dashboard_Lights_t *lightsData, STALK_lState_t stalkLeftState);
-void CAN_SendControlFrame(struct Dashboard_Control_t *controlData, GearSelector_State_t gearSelectorState);
+
 
 /*
 * Callbacks
@@ -93,6 +93,8 @@ void app_main(void)
     STALK_rState_t newStalkRightState = R_NORMAL;
     GearSelector_State_t gearSelectorState = GearSelector_P;
     GearSelector_State_t newGearSelectorState = GearSelector_P;
+    LightSelector_State_t lightSelectorState = LightSelector_Default;
+    LightSelector_State_t newLightSelectorState = LightSelector_Default;
 
     Dashboard_Lights_init(&CAN_lightsData);
     Dashboard_Control_init(&CAN_controlData);
@@ -116,6 +118,7 @@ void app_main(void)
                 newStalkLeftState = getLeftStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
                 newStalkRightState = getRightStalkState(ADC_Voltage[3], ADC_Voltage[4]);
                 newGearSelectorState = getGearSelectorState(ADC_Voltage[5]);
+                newLightSelectorState = getLightSelectorState(ADC_Voltage[6]);
             }
         }
 
@@ -123,13 +126,13 @@ void app_main(void)
         {
         	stalkLeftState = newStalkLeftState;
             // SEND DASHBOARD_LIGHTS_FRAME_ID
-        	CAN_SendLightsFrame(&CAN_lightsData, stalkLeftState);
+        	CAN_SendLightsFrame(&hcan1, &CAN_lightsData, stalkLeftState, lightSelectorState);
         }
 
         if(newStalkRightState != stalkRightState)
         {
             stalkRightState = newStalkRightState;
-            // SEND DASHBOARD_WIPERS_FRAME_ID
+            // READY, DELETE COMMENTS
             // NOT USED YET
             // CAN_SendWipersFrame(&CAN_wipersData, stalkRightState);
         }
@@ -137,7 +140,14 @@ void app_main(void)
         if(newGearSelectorState != gearSelectorState)
         {
             gearSelectorState = newGearSelectorState;
-            CAN_SendControlFrame(&CAN_controlData, gearSelectorState);
+            CAN_SendControlFrame(&hcan1, &CAN_controlData, gearSelectorState);
+        }
+
+        if(newLightSelectorState != lightSelectorState)
+        {
+            lightSelectorState = newLightSelectorState;
+            // TODO 
+            CAN_SendLightsFrame(&hcan1, &CAN_lightsData, stalkLeftState, lightSelectorState);
         }
 
         CAN_HandleScheduled(&hcan1, &canScheduler);
@@ -200,103 +210,4 @@ uint8_t ProcessADC1Data(void)
     }
     
     return 1; // voltages can be updated now
-}
-
-void CAN_SendControlFrame(struct Dashboard_Control_t *controlData, GearSelector_State_t gearSelectorState)
-{
-    switch(gearSelectorState)
-    {
-        case GearSelector_P:
-            controlData->PRND = DASHBOARD_CONTROL_PRND_P_CHOICE;
-        break;
-        case GearSelector_R:
-            controlData->PRND = DASHBOARD_CONTROL_PRND_R_CHOICE;
-        break;
-        case GearSelector_N:
-            controlData->PRND = DASHBOARD_CONTROL_PRND_N_CHOICE;
-        break;
-        case GearSelector_D:
-            controlData->PRND = DASHBOARD_CONTROL_PRND_D_CHOICE;
-        break;
-    }
-
-    uint8_t data[DASHBOARD_CONTROL_LENGTH];
-    Dashboard_Control_pack(data, controlData, DASHBOARD_CONTROL_LENGTH);
-
-    CAN_TxHeaderTypeDef header = {
-        .StdId = DASHBOARD_CONTROL_FRAME_ID,
-        .IDE = CAN_ID_STD,
-        .RTR = CAN_RTR_DATA,
-        .DLC = DASHBOARD_CONTROL_LENGTH
-    };
-
-    if(HAL_CAN_AddTxMessage(&hcan1, &header, data, &canScheduler.txMailbox) != HAL_OK)
-    {
-        Error_Handler();
-    }
-}
-
-void CAN_SendLightsFrame(struct Dashboard_Lights_t *lightsData, STALK_lState_t stalkLeftState)
-{
-    switch(stalkLeftState)
-    {
-        case L_NORMAL:
-            lightsData->TurnSignal_Left = DASHBOARD_LIGHTS_TURNSIGNAL_LEFT_OFF_CHOICE;
-            lightsData->TurnSignal_Right = DASHBOARD_LIGHTS_TURNSIGNAL_RIGHT_OFF_CHOICE;
-            lightsData->Headlights = DASHBOARD_LIGHTS_HEADLIGHTS_OFF_CHOICE;
-        break;
-        case L_BLINK_ONCE:
-            lightsData->TurnSignal_Left = DASHBOARD_LIGHTS_TURNSIGNAL_LEFT_ONCE_CHOICE;
-            break;
-        case L_BLINK:
-            lightsData->TurnSignal_Left = DASHBOARD_LIGHTS_TURNSIGNAL_LEFT_ON_CHOICE;
-            break;
-        case R_BLINK_ONCE:
-            lightsData->TurnSignal_Right = DASHBOARD_LIGHTS_TURNSIGNAL_RIGHT_ONCE_CHOICE;
-            break;
-        case R_BLINK:
-            lightsData->TurnSignal_Right = DASHBOARD_LIGHTS_TURNSIGNAL_RIGHT_ON_CHOICE;
-            break;
-        case HB_ONCE:
-        case HB:
-            lightsData->Headlights = DASHBOARD_LIGHTS_HEADLIGHTS_HIGHBEAMS_CHOICE;
-            break;
-    }
-
-    uint8_t data[DASHBOARD_LIGHTS_LENGTH];
-    Dashboard_Lights_pack(data, lightsData, DASHBOARD_LIGHTS_LENGTH);
-
-    CAN_TxHeaderTypeDef header = {
-        .StdId = DASHBOARD_LIGHTS_FRAME_ID,
-        .IDE = CAN_ID_STD,
-        .RTR = CAN_RTR_DATA,
-        .DLC = DASHBOARD_LIGHTS_LENGTH
-    };
-
-    if(HAL_CAN_AddTxMessage(&hcan1, &header, data, &canScheduler.txMailbox) != HAL_OK)
-    {
-        Error_Handler();
-    }
-}
-
-void CAN_SendWipersFrame(struct Dashboard_Wipers_t *wipersData, STALK_rState_t stalkRightState)
-{
-    Dashboard_Wipers_init(wipersData);
-    wipersData->Status = stalkRightState;
-    
-    uint8_t data[DASHBOARD_WIPERS_LENGTH];
-    Dashboard_Wipers_pack(data, wipersData, DASHBOARD_WIPERS_LENGTH);
-
-    CAN_TxHeaderTypeDef header = {
-        .StdId = DASHBOARD_WIPERS_FRAME_ID,
-        .IDE = CAN_ID_STD,
-        .RTR = CAN_RTR_DATA,
-        .DLC = DASHBOARD_WIPERS_LENGTH
-    };
-
-    if(HAL_CAN_AddTxMessage(&hcan1, &header, data, &canScheduler.txMailbox) != HAL_OK)
-    {
-        Error_Handler();
-    }
-
 }
