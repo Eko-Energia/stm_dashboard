@@ -49,7 +49,7 @@ struct LED LED_GREEN = {LED_OFF, LED_GREEN_GPIO_Port, LED_GREEN_Pin, 0};
 /*
 * Private functions prototypes
 */
-void ProcessADC1Data(void);
+uint8_t ProcessADC1Data(void);
 void CAN_SendLightsFrame(struct Dashboard_Lights_t *lightsData, STALK_lState_t stalkLeftState);
 void CAN_SendControlFrame(struct Dashboard_Control_t *controlData, GearSelector_State_t gearSelectorState);
 
@@ -111,10 +111,12 @@ void app_main(void)
         if(ADC_ConvCplt)
         {
             ADC_ConvCplt = 0;
-            ProcessADC1Data();
-            newStalkLeftState = getLeftStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
-            newStalkRightState = getRightStalkState(ADC_Voltage[3], ADC_Voltage[4]);
-            newGearSelectorState = getGearSelectorState(ADC_Voltage[6]);
+            if (ProcessADC1Data())
+            {
+                newStalkLeftState = getLeftStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
+                newStalkRightState = getRightStalkState(ADC_Voltage[3], ADC_Voltage[4]);
+                newGearSelectorState = getGearSelectorState(ADC_Voltage[6]);
+            }
         }
 
         if(newStalkLeftState != stalkLeftState)
@@ -144,7 +146,7 @@ void app_main(void)
     }
 }
 
-void ProcessADC1Data(void)
+uint8_t ProcessADC1Data(void)
 {
     const float ADC_vRef = 3.3f; // Reference voltage
     const float ADC_resolution = 4096.0f; // 12-bit ADC resolution
@@ -152,7 +154,8 @@ void ProcessADC1Data(void)
     static uint8_t samplesCollected = 0;
     static uint16_t ADC_Samples[ADC_CHANNELS][ADC_SAMPLES] = {0};
     uint16_t ADC_snapshot[ADC_CHANNELS] = {0};
-    
+
+    // voltages can be updated now
     // create a snapshot of the ADC values to avoid race conditions
     for(uint8_t channel = 0; channel < ADC_CHANNELS; channel++)
     {
@@ -162,11 +165,6 @@ void ProcessADC1Data(void)
     for (uint8_t channel = 0; channel < ADC_CHANNELS; channel++)
     {
         ADC_Samples[channel][sampleIndex] = ADC_snapshot[channel];
-
-        if(samplesCollected < ADC_SAMPLES)
-        {
-            continue;
-        }
 
         // Calculate the average of the samples for each channel (remove max and min for better accuracy)
         uint32_t sum = 0;
@@ -188,15 +186,20 @@ void ProcessADC1Data(void)
         ADC_Voltage[channel] = average * (ADC_vRef/ ADC_resolution);
     }
 
-    if(samplesCollected < ADC_SAMPLES)
-    {
-        samplesCollected++;
-    }
     sampleIndex++;
     if (sampleIndex >= ADC_SAMPLES)
     {
         sampleIndex = 0;
     }
+
+    // usage not allowed without ADC_SAMPLES samples
+    if(samplesCollected < ADC_SAMPLES)
+    {
+        samplesCollected++;
+        return 0; // voltages cannot be updated yet, try again later
+    }
+    
+    return 1; // voltages can be updated now
 }
 
 void CAN_SendControlFrame(struct Dashboard_Control_t *controlData, GearSelector_State_t gearSelectorState)
