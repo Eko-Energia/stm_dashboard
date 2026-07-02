@@ -115,7 +115,7 @@ void app_main(void)
             {
                 newStalkLeftState = getLeftStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
                 newStalkRightState = getRightStalkState(ADC_Voltage[3], ADC_Voltage[4]);
-                newGearSelectorState = getGearSelectorState(ADC_Voltage[6]);
+                newGearSelectorState = getGearSelectorState(ADC_Voltage[5]);
             }
         }
 
@@ -130,7 +130,7 @@ void app_main(void)
         {
             stalkRightState = newStalkRightState;
             // SEND DASHBOARD_WIPERS_FRAME_ID
-            // NOT IMPLEMENTED BCS NOT USED YET
+            // NOT USED YET
             // CAN_SendWipersFrame(&CAN_wipersData, stalkRightState);
         }
 
