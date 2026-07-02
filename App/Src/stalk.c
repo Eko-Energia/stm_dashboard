@@ -11,7 +11,7 @@ static float pinVoltageRange [PIN_STATES][2] = {
     {2.46, 3.3}, // VCC
 };
 
-static float gearSelectorVoltageRange [4][2] = {
+static float selectorVoltageRange [4][2] = {
     {0, 0.55}, // D
     {0.551, 1.66}, // N
     {1.661, 2.76}, // R
@@ -138,11 +138,15 @@ STALK_rState_t getRightStalkState(float pin0Voltage, float pin1Voltage)
 GearSelector_State_t getGearSelectorState(float voltage) {
     // iterate through 4 gear selector states
     for (int i = 0; i < 4; i++) {
-        if (voltage >= gearSelectorVoltageRange[i][0] && voltage <= gearSelectorVoltageRange[i][1]) {
+        if (voltage >= selectorVoltageRange[i][0] && voltage <= selectorVoltageRange[i][1]) {
             return (GearSelector_State_t) i;
         }
     }
     return GearSelector_P; // Default to park if out of range
+}
+
+LightSelector_State_t getLightSelectorState(float voltage) {
+    return (LightSelector_State_t) getGearSelectorState(voltage);
 }
 
 

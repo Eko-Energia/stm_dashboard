@@ -38,10 +38,19 @@ typedef enum {
     GearSelector_D = 0
 } GearSelector_State_t;
 
+typedef enum {
+    LightSelector_Default = 3,
+    LightSelector_Mode1 = 2,
+    LightSelector_Mode2 = 1,
+    LightSelector_Mode3 = 0
+} LightSelector_State_t;
+
 STALK_lState_t getLeftStalkState(float pin0Voltage, float pin1Voltage, float pin2voltage);
 
 STALK_rState_t getRightStalkState(float pin0Voltage, float pin1Voltage);
 
 GearSelector_State_t getGearSelectorState(float voltage);
+
+LightSelector_State_t getLightSelectorState(float voltage);
 
 #endif // __STALK_H__

@@ -20,6 +20,9 @@ void CAN_SendControlFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Control_t *c
         case GearSelector_D:
             controlData->PRND = DASHBOARD_CONTROL_PRND_D_CHOICE;
         break;
+        default:
+            // gear selector state not defined, don't change the state
+        break;
     }
 
     uint8_t data[DASHBOARD_CONTROL_LENGTH];
@@ -40,6 +43,24 @@ void CAN_SendControlFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Control_t *c
 
 void CAN_SendLightsFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Lights_t *lightsData, STALK_lState_t stalkLeftState, LightSelector_State_t lightSelectorState)
 {
+    switch(lightSelectorState)
+    {
+        case LightSelector_Default:
+            lightsData->Headlights = DASHBOARD_LIGHTS_HEADLIGHTS_OFF_CHOICE;
+        break;
+        case LightSelector_Mode1:
+            lightsData->Headlights = DASHBOARD_LIGHTS_HEADLIGHTS_AUTO_CHOICE;
+        break;
+        case LightSelector_Mode2:
+            lightsData->Headlights = DASHBOARD_LIGHTS_HEADLIGHTS_DAY_CHOICE;
+        break;
+        case LightSelector_Mode3:
+            lightsData->Headlights = DASHBOARD_LIGHTS_HEADLIGHTS_NIGHT_CHOICE;
+        break;
+        default:
+            // light selector state not defined, don't change the state
+        break;
+    }
     switch(stalkLeftState)
     {
         case L_NORMAL:
