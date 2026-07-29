@@ -36,7 +36,7 @@ struct Dashboard_Control_t CAN_controlData;
 #define ADC_CHANNELS 7
 #define ADC_SAMPLES 10
 
-static uint16_t ADC_buffer[ADC_CHANNELS] = {0};
+volatile static uint16_t ADC_buffer[ADC_CHANNELS] = {0};
 static float ADC_Voltage[ADC_CHANNELS] = {0};
 
 static volatile uint8_t ADC_ConvCplt = 0;
@@ -103,6 +103,7 @@ void app_main(void)
     {
         Error_Handler();
     }
+
     HAL_ADC_Start_DMA(&hadc1, (uint32_t *)ADC_buffer, ADC_CHANNELS);
 
 
@@ -115,16 +116,17 @@ void app_main(void)
             ADC_ConvCplt = 0;
             if (ProcessADC1Data())
             {
-                newStalkLeftState = getLeftStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
-                newStalkRightState = getRightStalkState(ADC_Voltage[3], ADC_Voltage[4]);
-                newGearSelectorState = getGearSelectorState(ADC_Voltage[5]);
-                newLightSelectorState = getLightSelectorState(ADC_Voltage[6]);
+                newStalkLeftState = getLeftStalkState(ADC_Voltage[ADC_STALK_L1], ADC_Voltage[ADC_STALK_L2], ADC_Voltage[ADC_STALK_L3]);
+                newStalkRightState = getRightStalkState(ADC_Voltage[ADC_STALK_R1], ADC_Voltage[ADC_STALK_R2]);
+                newGearSelectorState = getGearSelectorState(ADC_Voltage[ADC_GEAR]);
+                newLightSelectorState = getLightSelectorState(ADC_Voltage[ADC_LIGHT]);
             }
         }
 
-        if(newStalkLeftState != stalkLeftState)
+        if(newStalkLeftState != stalkLeftState || newLightSelectorState != lightSelectorState)
         {
         	stalkLeftState = newStalkLeftState;
+            lightSelectorState = newLightSelectorState;
             // SEND DASHBOARD_LIGHTS_FRAME_ID
         	CAN_SendLightsFrame(&hcan1, &CAN_lightsData, stalkLeftState, lightSelectorState);
         }
@@ -141,13 +143,6 @@ void app_main(void)
         {
             gearSelectorState = newGearSelectorState;
             CAN_SendControlFrame(&hcan1, &CAN_controlData, gearSelectorState);
-        }
-
-        if(newLightSelectorState != lightSelectorState)
-        {
-            lightSelectorState = newLightSelectorState;
-            // TODO 
-            CAN_SendLightsFrame(&hcan1, &CAN_lightsData, stalkLeftState, lightSelectorState);
         }
 
         CAN_HandleScheduled(&hcan1, &canScheduler);
@@ -189,9 +184,8 @@ uint8_t ProcessADC1Data(void)
             if (sample > max) max = sample;
         }
 
-        float average = 0.0f;
 		sum -= (min + max);
-        average = (float) sum / (ADC_SAMPLES - 2); 
+        float average = (float) sum / (ADC_SAMPLES - 2); 
 
         ADC_Voltage[channel] = average * (ADC_vRef/ ADC_resolution);
     }

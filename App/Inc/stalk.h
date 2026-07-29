@@ -3,6 +3,12 @@
 
 #include "stdint.h"
 
+typedef enum {
+    ADC_STALK_L1 = 0, ADC_STALK_L2, ADC_STALK_L3,
+    ADC_STALK_R1, ADC_STALK_R2,
+    ADC_GEAR, ADC_LIGHT
+} ADC_Channel_t;
+
 /*
 * @brief Stalk states
 * @note bit 0 (1): L_BLINK
