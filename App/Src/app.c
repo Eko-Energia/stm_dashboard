@@ -160,12 +160,14 @@ uint8_t ProcessADC1Data(void)
     static uint16_t ADC_Samples[ADC_CHANNELS][ADC_SAMPLES] = {0};
     uint16_t ADC_snapshot[ADC_CHANNELS] = {0};
 
-    // voltages can be updated now
-    // create a snapshot of the ADC values to avoid race conditions
+
+    __disable_irq(); // Disable interrupts to prevent race conditions while
+    // create a snapshot of the ADC values (mask to keep only 12 bits)
     for(uint8_t channel = 0; channel < ADC_CHANNELS; channel++)
     {
         ADC_snapshot[channel] = ADC_buffer[channel] & 0x0FFFu;
     }
+    __enable_irq(); // Re-enable interrupts after snapshot is taken
 
     for (uint8_t channel = 0; channel < ADC_CHANNELS; channel++)
     {
