@@ -57,6 +57,10 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define EMERGENCY_PIN_Pin GPIO_PIN_0
+#define EMERGENCY_PIN_GPIO_Port GPIOC
+#define MODE_PIN_Pin GPIO_PIN_1
+#define MODE_PIN_GPIO_Port GPIOC
 #define LIGHT_SWITCH_PIN_Pin GPIO_PIN_0
 #define LIGHT_SWITCH_PIN_GPIO_Port GPIOA
 #define PRND_PIN_Pin GPIO_PIN_2

@@ -29,7 +29,7 @@ typedef enum {
 
 static STALK_pinState_t getPinState(float voltage) {
     for (int i = 0; i < PIN_STATES; i++) {
-        if (voltage >= pinVoltageRange[i][0] && voltage <= pinVoltageRange[i][1]) {
+        if (voltage > pinVoltageRange[i][0] && voltage <= pinVoltageRange[i][1]) {
             return (STALK_pinState_t) i;
         }
     }

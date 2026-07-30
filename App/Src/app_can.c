@@ -4,7 +4,7 @@
 
 extern struct CAN_scheduledMsgList canScheduler;
 
-void CAN_SendControlFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Control_t *controlData, GearSelector_State_t gearSelectorState)
+void CAN_SendControlFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Control_t *controlData, GearSelector_State_t gearSelectorState, GPIO_PinState modeButtonState)
 {
     switch(gearSelectorState)
     {
@@ -25,6 +25,8 @@ void CAN_SendControlFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Control_t *c
         break;
     }
 
+    controlData->Mode = modeButtonState == GPIO_PIN_SET ? DASHBOARD_CONTROL_MODE_NORMAL_CHOICE : DASHBOARD_CONTROL_MODE_SPECIAL_CHOICE;
+
     uint8_t data[DASHBOARD_CONTROL_LENGTH];
     Dashboard_Control_pack(data, controlData, DASHBOARD_CONTROL_LENGTH);
 
@@ -41,7 +43,7 @@ void CAN_SendControlFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Control_t *c
     }
 }
 
-void CAN_SendLightsFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Lights_t *lightsData, STALK_lState_t stalkLeftState, LightSelector_State_t lightSelectorState)
+void CAN_SendLightsFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Lights_t *lightsData, STALK_lState_t stalkLeftState, LightSelector_State_t lightSelectorState, GPIO_PinState emergencyButtonState)
 {
     switch(lightSelectorState)
     {
@@ -89,6 +91,8 @@ void CAN_SendLightsFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Lights_t *lig
             break;
     }
 
+    lightsData->Emergency = emergencyButtonState == GPIO_PIN_SET ? DASHBOARD_LIGHTS_EMERGENCY_ON_CHOICE : DASHBOARD_LIGHTS_EMERGENCY_OFF_CHOICE;
+
     uint8_t data[DASHBOARD_LIGHTS_LENGTH];
     Dashboard_Lights_pack(data, lightsData, DASHBOARD_LIGHTS_LENGTH);
 
@@ -126,3 +130,5 @@ void CAN_SendWipersFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Wipers_t *wip
     }
 
 }
+
+
