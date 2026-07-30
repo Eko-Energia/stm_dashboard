@@ -12,10 +12,10 @@ static float pinVoltageRange [PIN_STATES][2] = {
 };
 
 static float selectorVoltageRange [4][2] = {
-    {0, 0.55}, // D
-    {0.551, 1.66}, // N
-    {1.661, 2.76}, // R
-    {2.761, 3.3} // P
+    {0.1, 0.545}, // D
+    {0.545, 1.71}, // N
+    {1.71, 2.765}, // R
+    {2.765, 3.3} // P
 };
 
 typedef enum {
@@ -29,7 +29,7 @@ typedef enum {
 
 static STALK_pinState_t getPinState(float voltage) {
     for (int i = 0; i < PIN_STATES; i++) {
-        if (voltage >= pinVoltageRange[i][0] && voltage <= pinVoltageRange[i][1]) {
+        if (voltage > pinVoltageRange[i][0] && voltage <= pinVoltageRange[i][1]) {
             return (STALK_pinState_t) i;
         }
     }

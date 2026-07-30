@@ -98,6 +98,8 @@ void app_main(void)
     GearSelector_State_t newGearSelectorState = GearSelector_P;
     LightSelector_State_t lightSelectorState = LightSelector_Default;
     LightSelector_State_t newLightSelectorState = LightSelector_Default;
+    GPIO_PinState emergencyButtonState = HAL_GPIO_ReadPin(EMERGENCY_PIN_GPIO_Port, EMERGENCY_PIN_Pin);
+    GPIO_PinState modeButtonState = HAL_GPIO_ReadPin(MODE_PIN_GPIO_Port, MODE_PIN_Pin);
 
     // initialize CAN rx buffers
     Dashboard_Lights_init(&CAN_lightsData);
@@ -110,10 +112,13 @@ void app_main(void)
 
     HAL_ADC_Start_DMA(&hadc1, (uint32_t *)ADC_buffer, ADC_CHANNELS);
 
-
     LED_ChangeState(&LED_GREEN, LED_BLINK);
     while (1)
     {
+
+    	emergencyButtonState = HAL_GPIO_ReadPin(EMERGENCY_PIN_GPIO_Port, EMERGENCY_PIN_Pin);
+    	modeButtonState = HAL_GPIO_ReadPin(MODE_PIN_GPIO_Port, MODE_PIN_Pin);
+        
         // ADC handling
         if(ADC_ConvCplt)
         {
@@ -133,7 +138,7 @@ void app_main(void)
         	stalkLeftState = newStalkLeftState;
             lightSelectorState = newLightSelectorState;
             // SEND DASHBOARD_LIGHTS_FRAME_ID
-        	CAN_SendLightsFrame(&hcan1, &CAN_lightsData, stalkLeftState, lightSelectorState);
+        	CAN_SendLightsFrame(&hcan1, &CAN_lightsData, stalkLeftState, lightSelectorState, emergencyButtonState);
         }
 
         if(newStalkRightState != stalkRightState)
@@ -147,7 +152,7 @@ void app_main(void)
         if(newGearSelectorState != gearSelectorState)
         {
             gearSelectorState = newGearSelectorState;
-            CAN_SendControlFrame(&hcan1, &CAN_controlData, gearSelectorState);
+            CAN_SendControlFrame(&hcan1, &CAN_controlData, gearSelectorState, modeButtonState);
         }
 
         // CAN / DEBUG LED handling
@@ -173,7 +178,6 @@ static uint8_t ProcessADC1Data(void)
     static uint8_t samplesCollected = 0;
     static uint16_t ADC_Samples[ADC_CHANNELS][ADC_SAMPLES] = {0};
     uint16_t ADC_snapshot[ADC_CHANNELS] = {0};
-
 
     __disable_irq(); // Disable interrupts to prevent race conditions while
     // create a snapshot of the ADC values (mask to keep only 12 bits)
