@@ -37,7 +37,7 @@ void CAN_SendControlFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Control_t *c
 
     if(HAL_CAN_AddTxMessage(hcan, &header, data, &canScheduler.txMailbox) != HAL_OK)
     {
-        Error_Handler();
+        CAN_state = CAN_TX_ERROR;
     }
 }
 
@@ -66,19 +66,22 @@ void CAN_SendLightsFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Lights_t *lig
         case L_NORMAL:
             lightsData->TurnSignal_Left = DASHBOARD_LIGHTS_TURNSIGNAL_LEFT_OFF_CHOICE;
             lightsData->TurnSignal_Right = DASHBOARD_LIGHTS_TURNSIGNAL_RIGHT_OFF_CHOICE;
-            lightsData->Headlights = DASHBOARD_LIGHTS_HEADLIGHTS_OFF_CHOICE;
         break;
         case L_BLINK_ONCE:
             lightsData->TurnSignal_Left = DASHBOARD_LIGHTS_TURNSIGNAL_LEFT_ONCE_CHOICE;
+            lightsData->TurnSignal_Right = DASHBOARD_LIGHTS_TURNSIGNAL_RIGHT_OFF_CHOICE;
             break;
         case L_BLINK:
             lightsData->TurnSignal_Left = DASHBOARD_LIGHTS_TURNSIGNAL_LEFT_ON_CHOICE;
+            lightsData->TurnSignal_Right = DASHBOARD_LIGHTS_TURNSIGNAL_RIGHT_OFF_CHOICE;
             break;
         case R_BLINK_ONCE:
             lightsData->TurnSignal_Right = DASHBOARD_LIGHTS_TURNSIGNAL_RIGHT_ONCE_CHOICE;
+            lightsData->TurnSignal_Left = DASHBOARD_LIGHTS_TURNSIGNAL_LEFT_OFF_CHOICE;
             break;
         case R_BLINK:
             lightsData->TurnSignal_Right = DASHBOARD_LIGHTS_TURNSIGNAL_RIGHT_ON_CHOICE;
+            lightsData->TurnSignal_Left = DASHBOARD_LIGHTS_TURNSIGNAL_LEFT_OFF_CHOICE;
             break;
         case HB_ONCE:
         case HB:
@@ -98,7 +101,7 @@ void CAN_SendLightsFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Lights_t *lig
 
     if(HAL_CAN_AddTxMessage(hcan, &header, data, &canScheduler.txMailbox) != HAL_OK)
     {
-        Error_Handler();
+        CAN_state = CAN_TX_ERROR;
     }
 }
 
@@ -119,7 +122,7 @@ void CAN_SendWipersFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Wipers_t *wip
 
     if(HAL_CAN_AddTxMessage(hcan, &header, data, &canScheduler.txMailbox) != HAL_OK)
     {
-        Error_Handler();
+        CAN_state = CAN_TX_ERROR;
     }
 
 }

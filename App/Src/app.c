@@ -14,6 +14,8 @@ extern ADC_HandleTypeDef hadc1;
 /*
 * CAN
 */
+volatile CAN_State_t CAN_state = CAN_OK;
+
 struct CAN_scheduledMsgList canScheduler =
 {
     .size = 0,
@@ -50,8 +52,7 @@ struct LED LED_GREEN = {LED_OFF, LED_GREEN_GPIO_Port, LED_GREEN_Pin, 0};
 /*
 * Private functions prototypes
 */
-uint8_t ProcessADC1Data(void);
-
+static uint8_t ProcessADC1Data(void);
 
 /*
 * Callbacks
@@ -64,12 +65,14 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
         uint8_t data[CAN_MAX_DLC];
         if(HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &header, data) != HAL_OK)
         {
-            Error_Handler();
+            CAN_state = CAN_RX_ERROR;
+            return;
         }
 
         if(CAN_AddIncomingMsg(&canRxBuffer, &header, data) != HAL_OK)
         {
-            Error_Handler();
+            CAN_state = CAN_RX_ERROR;
+            return;
         }
     }
 }
@@ -96,6 +99,7 @@ void app_main(void)
     LightSelector_State_t lightSelectorState = LightSelector_Default;
     LightSelector_State_t newLightSelectorState = LightSelector_Default;
 
+    // initialize CAN rx buffers
     Dashboard_Lights_init(&CAN_lightsData);
     Dashboard_Control_init(&CAN_controlData);
     
@@ -110,7 +114,7 @@ void app_main(void)
     LED_ChangeState(&LED_GREEN, LED_BLINK);
     while (1)
     {
-        
+        // ADC handling
         if(ADC_ConvCplt)
         {
             ADC_ConvCplt = 0;
@@ -123,6 +127,7 @@ void app_main(void)
             }
         }
 
+        // stalk state handling
         if(newStalkLeftState != stalkLeftState || newLightSelectorState != lightSelectorState)
         {
         	stalkLeftState = newStalkLeftState;
@@ -145,13 +150,22 @@ void app_main(void)
             CAN_SendControlFrame(&hcan1, &CAN_controlData, gearSelectorState);
         }
 
+        // CAN / DEBUG LED handling
+        //handleCanRx(&canRxBuffer);
+        if (CAN_state != CAN_OK) {
+            if (LED_RED.state != LED_BLINK) {
+                LED_ChangeState(&LED_RED, LED_BLINK);  // once, on transition
+            }
+        } else if (LED_RED.state != LED_OFF) {
+            LED_ChangeState(&LED_RED, LED_OFF);        // once, on clear
+        }
         CAN_HandleScheduled(&hcan1, &canScheduler);
         LED_Handle(&LED_GREEN);
         LED_Handle(&LED_RED);
     }
 }
 
-uint8_t ProcessADC1Data(void)
+static uint8_t ProcessADC1Data(void)
 {
     const float ADC_vRef = 3.3f; // Reference voltage
     const float ADC_resolution = 4096.0f; // 12-bit ADC resolution

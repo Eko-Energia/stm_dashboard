@@ -5,6 +5,16 @@
 #include "stalk.h"
 #include "CAN_DB.h"
 
+typedef enum
+{
+    CAN_OK = 0,
+    CAN_TX_ERROR = 1,
+    CAN_RX_ERROR = 2,
+    CAN_INIT_ERROR = 3
+} CAN_State_t;
+
+extern volatile CAN_State_t CAN_state;
+
 void CAN_SendLightsFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Lights_t *lightsData, STALK_lState_t stalkLeftState, LightSelector_State_t lightSelectorState);
 
 void CAN_SendControlFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Control_t *controlData, GearSelector_State_t gearSelectorState);
