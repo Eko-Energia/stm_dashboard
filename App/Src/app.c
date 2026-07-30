@@ -3,6 +3,7 @@
 #include "led_driver.h"
 #include "stalk.h"
 #include "CAN_DB.h"
+#include "app_can.h"
 
 /*
 * External variables
@@ -13,6 +14,8 @@ extern ADC_HandleTypeDef hadc1;
 /*
 * CAN
 */
+volatile CAN_State_t CAN_state = CAN_OK;
+
 struct CAN_scheduledMsgList canScheduler =
 {
     .size = 0,
@@ -27,14 +30,15 @@ struct CAN_IncomingMsgList canRxBuffer =
 };
 
 struct Dashboard_Lights_t CAN_lightsData;
+struct Dashboard_Control_t CAN_controlData;
 
 /*
 * ADC
 */
-#define ADC_CHANNELS 4
+#define ADC_CHANNELS 7
 #define ADC_SAMPLES 10
 
-static uint16_t ADC_buffer[ADC_CHANNELS] = {0};
+volatile static uint16_t ADC_buffer[ADC_CHANNELS] = {0};
 static float ADC_Voltage[ADC_CHANNELS] = {0};
 
 static volatile uint8_t ADC_ConvCplt = 0;
@@ -48,8 +52,7 @@ struct LED LED_GREEN = {LED_OFF, LED_GREEN_GPIO_Port, LED_GREEN_Pin, 0};
 /*
 * Private functions prototypes
 */
-void ProcessADC1Data(void);
-void CAN_SendLightsFrame(struct Dashboard_Lights_t *lightsData, STALK_lState_t stalkState);
+static uint8_t ProcessADC1Data(void);
 
 /*
 * Callbacks
@@ -62,12 +65,14 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
         uint8_t data[CAN_MAX_DLC];
         if(HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &header, data) != HAL_OK)
         {
-            Error_Handler();
+            CAN_state = CAN_RX_ERROR;
+            return;
         }
 
         if(CAN_AddIncomingMsg(&canRxBuffer, &header, data) != HAL_OK)
         {
-            Error_Handler();
+            CAN_state = CAN_RX_ERROR;
+            return;
         }
     }
 }
@@ -84,41 +89,83 @@ void app_main(void)
 {
     CAN_Init(&hcan1);
 
-    STALK_lState_t stalkState = getStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
+    // Initialize states
+    STALK_lState_t stalkLeftState = L_NORMAL;
+    STALK_lState_t newStalkLeftState = L_NORMAL;
+    STALK_rState_t stalkRightState = R_NORMAL;
+    STALK_rState_t newStalkRightState = R_NORMAL;
+    GearSelector_State_t gearSelectorState = GearSelector_P;
+    GearSelector_State_t newGearSelectorState = GearSelector_P;
+    LightSelector_State_t lightSelectorState = LightSelector_Default;
+    LightSelector_State_t newLightSelectorState = LightSelector_Default;
+
+    // initialize CAN rx buffers
     Dashboard_Lights_init(&CAN_lightsData);
+    Dashboard_Control_init(&CAN_controlData);
     
     if (HAL_ADCEx_Calibration_Start(&hadc1) != HAL_OK)
     {
         Error_Handler();
     }
+
     HAL_ADC_Start_DMA(&hadc1, (uint32_t *)ADC_buffer, ADC_CHANNELS);
 
 
     LED_ChangeState(&LED_GREEN, LED_BLINK);
     while (1)
     {
-        
+        // ADC handling
         if(ADC_ConvCplt)
         {
             ADC_ConvCplt = 0;
-            ProcessADC1Data();
+            if (ProcessADC1Data())
+            {
+                newStalkLeftState = getLeftStalkState(ADC_Voltage[ADC_STALK_L1], ADC_Voltage[ADC_STALK_L2], ADC_Voltage[ADC_STALK_L3]);
+                newStalkRightState = getRightStalkState(ADC_Voltage[ADC_STALK_R1], ADC_Voltage[ADC_STALK_R2]);
+                newGearSelectorState = getGearSelectorState(ADC_Voltage[ADC_GEAR]);
+                newLightSelectorState = getLightSelectorState(ADC_Voltage[ADC_LIGHT]);
+            }
         }
 
-        STALK_lState_t newStalkState = getStalkState(ADC_Voltage[0], ADC_Voltage[1], ADC_Voltage[2]);
-        if(newStalkState != stalkState)
+        // stalk state handling
+        if(newStalkLeftState != stalkLeftState || newLightSelectorState != lightSelectorState)
         {
-        	stalkState = newStalkState;
+        	stalkLeftState = newStalkLeftState;
+            lightSelectorState = newLightSelectorState;
             // SEND DASHBOARD_LIGHTS_FRAME_ID
-        	CAN_SendLightsFrame(&CAN_lightsData, stalkState);
+        	CAN_SendLightsFrame(&hcan1, &CAN_lightsData, stalkLeftState, lightSelectorState);
         }
 
+        if(newStalkRightState != stalkRightState)
+        {
+            stalkRightState = newStalkRightState;
+            // READY, DELETE COMMENTS
+            // NOT USED YET
+            // CAN_SendWipersFrame(&CAN_wipersData, stalkRightState);
+        }
+
+        if(newGearSelectorState != gearSelectorState)
+        {
+            gearSelectorState = newGearSelectorState;
+            CAN_SendControlFrame(&hcan1, &CAN_controlData, gearSelectorState);
+        }
+
+        // CAN / DEBUG LED handling
+        //handleCanRx(&canRxBuffer);
+        if (CAN_state != CAN_OK) {
+            if (LED_RED.state != LED_BLINK) {
+                LED_ChangeState(&LED_RED, LED_BLINK);  // once, on transition
+            }
+        } else if (LED_RED.state != LED_OFF) {
+            LED_ChangeState(&LED_RED, LED_OFF);        // once, on clear
+        }
         CAN_HandleScheduled(&hcan1, &canScheduler);
         LED_Handle(&LED_GREEN);
         LED_Handle(&LED_RED);
     }
 }
 
-void ProcessADC1Data(void)
+static uint8_t ProcessADC1Data(void)
 {
     const float ADC_vRef = 3.3f; // Reference voltage
     const float ADC_resolution = 4096.0f; // 12-bit ADC resolution
@@ -126,21 +173,19 @@ void ProcessADC1Data(void)
     static uint8_t samplesCollected = 0;
     static uint16_t ADC_Samples[ADC_CHANNELS][ADC_SAMPLES] = {0};
     uint16_t ADC_snapshot[ADC_CHANNELS] = {0};
-    
-    // create a snapshot of the ADC values to avoid race conditions
+
+
+    __disable_irq(); // Disable interrupts to prevent race conditions while
+    // create a snapshot of the ADC values (mask to keep only 12 bits)
     for(uint8_t channel = 0; channel < ADC_CHANNELS; channel++)
     {
         ADC_snapshot[channel] = ADC_buffer[channel] & 0x0FFFu;
     }
+    __enable_irq(); // Re-enable interrupts after snapshot is taken
 
     for (uint8_t channel = 0; channel < ADC_CHANNELS; channel++)
     {
         ADC_Samples[channel][sampleIndex] = ADC_snapshot[channel];
-
-        if(samplesCollected < ADC_SAMPLES)
-        {
-            continue;
-        }
 
         // Calculate the average of the samples for each channel (remove max and min for better accuracy)
         uint32_t sum = 0;
@@ -155,63 +200,24 @@ void ProcessADC1Data(void)
             if (sample > max) max = sample;
         }
 
-        float average = 0.0f;
 		sum -= (min + max);
-        average = (float) sum / (ADC_SAMPLES - 2); 
+        float average = (float) sum / (ADC_SAMPLES - 2); 
 
         ADC_Voltage[channel] = average * (ADC_vRef/ ADC_resolution);
     }
 
-    if(samplesCollected < ADC_SAMPLES)
-    {
-        samplesCollected++;
-    }
     sampleIndex++;
     if (sampleIndex >= ADC_SAMPLES)
     {
         sampleIndex = 0;
     }
-}
 
-void CAN_SendLightsFrame(struct Dashboard_Lights_t *lightsData, STALK_lState_t stalkState)
-{
-    switch(stalkState)
+    // usage not allowed without ADC_SAMPLES samples
+    if(samplesCollected < ADC_SAMPLES)
     {
-        case NORMAL:
-            lightsData->TurnSignal_Left = DASHBOARD_LIGHTS_TURNSIGNAL_LEFT_OFF_CHOICE;
-            lightsData->TurnSignal_Right = DASHBOARD_LIGHTS_TURNSIGNAL_RIGHT_OFF_CHOICE;
-            lightsData->Headlights = DASHBOARD_LIGHTS_HEADLIGHTS_OFF_CHOICE;
-        break;
-        case L_BLINK_ONCE:
-            lightsData->TurnSignal_Left = DASHBOARD_LIGHTS_TURNSIGNAL_LEFT_ONCE_CHOICE;
-            break;
-        case L_BLINK:
-            lightsData->TurnSignal_Left = DASHBOARD_LIGHTS_TURNSIGNAL_LEFT_ON_CHOICE;
-            break;
-        case R_BLINK_ONCE:
-            lightsData->TurnSignal_Right = DASHBOARD_LIGHTS_TURNSIGNAL_RIGHT_ONCE_CHOICE;
-            break;
-        case R_BLINK:
-            lightsData->TurnSignal_Right = DASHBOARD_LIGHTS_TURNSIGNAL_RIGHT_ON_CHOICE;
-            break;
-        case HB_ONCE:
-        case HB:
-            lightsData->Headlights = DASHBOARD_LIGHTS_HEADLIGHTS_HIGHBEAMS_CHOICE;
-            break;
+        samplesCollected++;
+        return 0; // voltages cannot be updated yet, try again later
     }
-
-    uint8_t data[DASHBOARD_LIGHTS_LENGTH];
-    Dashboard_Lights_pack(data, lightsData, DASHBOARD_LIGHTS_LENGTH);
-
-    CAN_TxHeaderTypeDef header = {
-        .StdId = DASHBOARD_LIGHTS_FRAME_ID,
-        .IDE = CAN_ID_STD,
-        .RTR = CAN_RTR_DATA,
-        .DLC = DASHBOARD_LIGHTS_LENGTH
-    };
-
-    if(HAL_CAN_AddTxMessage(&hcan1, &header, data, &canScheduler.txMailbox) != HAL_OK)
-    {
-        Error_Handler();
-    }
+    
+    return 1; // voltages can be updated now
 }
