@@ -2,7 +2,22 @@
 #include "main.h"
 #include "can_driver.h"
 
+/** Normal / no-fault error code */
+#define DASHBOARD_NODE_NORMAL_ERROR_CODE (0u)
+/** INFO severity — maintenance info, no immediate action */
+#define DASHBOARD_NODE_NORMAL_SEVERITY (3u)
+
 extern struct CAN_scheduledMsgList canScheduler;
+
+static void CAN_GetNodeData(uint8_t *data, void *context)
+{
+    struct Dashboard_NODE_t *nodeData = (struct Dashboard_NODE_t *)context;
+    if (nodeData == NULL)
+    {
+        return;
+    }
+    Dashboard_NODE_pack(data, nodeData, DASHBOARD_NODE_LENGTH);
+}
 
 void CAN_SendControlFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Control_t *controlData, GearSelector_State_t gearSelectorState, GPIO_PinState modeButtonState)
 {
@@ -131,4 +146,29 @@ void CAN_SendWipersFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Wipers_t *wip
 
 }
 
+void CAN_ScheduleNodeFrame(struct CAN_scheduledMsgList *scheduler, struct Dashboard_NODE_t *nodeData)
+{
+    Dashboard_NODE_init(nodeData);
+    nodeData->Error_Code = DASHBOARD_NODE_NORMAL_ERROR_CODE;
+    nodeData->Severity = DASHBOARD_NODE_NORMAL_SEVERITY;
+    nodeData->Node_Execution_Halted = 0;
+
+    struct CAN_scheduledMsg nodeMsg = {
+        .header = {
+            .StdId = DASHBOARD_NODE_FRAME_ID,
+            .IDE = CAN_ID_STD,
+            .RTR = CAN_RTR_DATA,
+            .DLC = DASHBOARD_NODE_LENGTH
+        },
+        .periodMs = DASHBOARD_NODE_CYCLE_TIME_MS,
+        .lastTick = 0,
+        .getData = CAN_GetNodeData,
+        .context = nodeData
+    };
+
+    if (CAN_AddScheduledMsg(&nodeMsg, scheduler) != HAL_OK)
+    {
+        CAN_state = CAN_INIT_ERROR;
+    }
+}
 
