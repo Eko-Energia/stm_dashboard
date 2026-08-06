@@ -12,10 +12,10 @@ static float pinVoltageRange [PIN_STATES][2] = {
 };
 
 static float selectorVoltageRange [4][2] = {
-    {0.1, 0.545}, // D
-    {0.545, 1.71}, // N
-    {1.71, 2.765}, // R
-    {2.765, 3.3} // P
+    {0.09, 0.545}, // D day
+    {0.545, 1.71}, // N positon
+    {1.71, 2.765}, // R auto
+    {2.765, 3.3} // P off
 };
 
 typedef enum {
