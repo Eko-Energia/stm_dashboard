@@ -31,6 +31,8 @@ struct CAN_IncomingMsgList canRxBuffer =
 
 struct Dashboard_Lights_t CAN_lightsData;
 struct Dashboard_Control_t CAN_controlData;
+struct Dashboard_Wipers_t CAN_wipersData;
+struct Dashboard_NODE_t CAN_nodeData;
 
 /*
 * ADC
@@ -98,12 +100,14 @@ void app_main(void)
     GearSelector_State_t newGearSelectorState = GearSelector_P;
     LightSelector_State_t lightSelectorState = LightSelector_Default;
     LightSelector_State_t newLightSelectorState = LightSelector_Default;
-    GPIO_PinState emergencyButtonState = HAL_GPIO_ReadPin(EMERGENCY_PIN_GPIO_Port, EMERGENCY_PIN_Pin);
-    GPIO_PinState modeButtonState = HAL_GPIO_ReadPin(MODE_PIN_GPIO_Port, MODE_PIN_Pin);
+    GPIO_PinState emergencyButtonState = GPIO_PIN_RESET;
+    GPIO_PinState modeButtonState = GPIO_PIN_RESET;
 
     // initialize CAN rx buffers
     Dashboard_Lights_init(&CAN_lightsData);
     Dashboard_Control_init(&CAN_controlData);
+    Dashboard_Wipers_init(&CAN_wipersData);
+    CAN_ScheduleNodeFrame(&canScheduler, &CAN_nodeData);
     
     if (HAL_ADCEx_Calibration_Start(&hadc1) != HAL_OK)
     {
@@ -114,11 +118,7 @@ void app_main(void)
 
     LED_ChangeState(&LED_GREEN, LED_BLINK);
     while (1)
-    {
-
-    	emergencyButtonState = HAL_GPIO_ReadPin(EMERGENCY_PIN_GPIO_Port, EMERGENCY_PIN_Pin);
-    	modeButtonState = HAL_GPIO_ReadPin(MODE_PIN_GPIO_Port, MODE_PIN_Pin);
-        
+    {   
         // ADC handling
         if(ADC_ConvCplt)
         {
@@ -146,12 +146,24 @@ void app_main(void)
             stalkRightState = newStalkRightState;
             // READY, DELETE COMMENTS
             // NOT USED YET
-            // CAN_SendWipersFrame(&CAN_wipersData, stalkRightState);
+             CAN_SendWipersFrame(&hcan1, &CAN_wipersData, stalkRightState);
         }
 
         if(newGearSelectorState != gearSelectorState)
         {
             gearSelectorState = newGearSelectorState;
+            CAN_SendControlFrame(&hcan1, &CAN_controlData, gearSelectorState, modeButtonState);
+        }
+
+        if(emergencyButtonState != HAL_GPIO_ReadPin(EMERGENCY_PIN_GPIO_Port, EMERGENCY_PIN_Pin))
+        {
+            emergencyButtonState = HAL_GPIO_ReadPin(EMERGENCY_PIN_GPIO_Port, EMERGENCY_PIN_Pin);
+            CAN_SendLightsFrame(&hcan1, &CAN_lightsData, stalkLeftState, lightSelectorState, emergencyButtonState);
+        }
+
+        if(modeButtonState != HAL_GPIO_ReadPin(MODE_PIN_GPIO_Port, MODE_PIN_Pin))
+        {
+            modeButtonState = HAL_GPIO_ReadPin(MODE_PIN_GPIO_Port, MODE_PIN_Pin);
             CAN_SendControlFrame(&hcan1, &CAN_controlData, gearSelectorState, modeButtonState);
         }
 

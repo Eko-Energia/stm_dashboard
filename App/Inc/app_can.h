@@ -4,6 +4,7 @@
 #include "can.h"
 #include "stalk.h"
 #include "CAN_DB.h"
+#include "can_driver.h"
 
 typedef enum
 {
@@ -20,5 +21,7 @@ void CAN_SendLightsFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Lights_t *lig
 void CAN_SendControlFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Control_t *controlData, GearSelector_State_t gearSelectorState, GPIO_PinState modeButtonState);
 
 void CAN_SendWipersFrame(CAN_HandleTypeDef *hcan, struct Dashboard_Wipers_t *wipersData, STALK_rState_t stalkRightState);
+
+void CAN_ScheduleNodeFrame(struct CAN_scheduledMsgList *scheduler, struct Dashboard_NODE_t *nodeData);
 
 #endif /* APP_CAN_H */
