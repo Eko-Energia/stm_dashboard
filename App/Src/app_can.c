@@ -160,7 +160,7 @@ void CAN_ScheduleNodeFrame(struct CAN_scheduledMsgList *scheduler, struct Dashbo
             .RTR = CAN_RTR_DATA,
             .DLC = DASHBOARD_NODE_LENGTH
         },
-        .periodMs = DASHBOARD_NODE_CYCLE_TIME_MS,
+        .periodMs = 1000,
         .lastTick = 0,
         .getData = CAN_GetNodeData,
         .context = nodeData
