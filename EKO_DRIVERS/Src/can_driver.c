@@ -129,7 +129,8 @@ void CAN_HandleScheduled(CAN_HandleTypeDef *hcanPtr, struct CAN_scheduledMsgList
 			{
 				msg->getData(data, msg->context);
 			}
-			
+
+
 			if (HAL_CAN_AddTxMessage(hcanPtr, &msg->header, data, &scheduler->txMailbox) != HAL_OK)
 			{
 				return;
