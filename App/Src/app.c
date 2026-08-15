@@ -67,13 +67,11 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
         uint8_t data[CAN_MAX_DLC];
         if(HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &header, data) != HAL_OK)
         {
-            CAN_state = CAN_RX_ERROR;
             return;
         }
 
         if(CAN_AddIncomingMsg(&canRxBuffer, &header, data) != HAL_OK)
         {
-            CAN_state = CAN_RX_ERROR;
             return;
         }
     }
@@ -107,7 +105,7 @@ void app_main(void)
     Dashboard_Lights_init(&CAN_lightsData);
     Dashboard_Control_init(&CAN_controlData);
     Dashboard_Wipers_init(&CAN_wipersData);
-    CAN_ScheduleNodeFrame(&canScheduler, &CAN_nodeData);
+ //   CAN_ScheduleNodeFrame(&canScheduler, &CAN_nodeData);
     
     if (HAL_ADCEx_Calibration_Start(&hadc1) != HAL_OK)
     {
