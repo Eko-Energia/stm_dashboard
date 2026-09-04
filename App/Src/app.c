@@ -33,6 +33,8 @@ struct Dashboard_Lights_t CAN_lightsData;
 struct Dashboard_Control_t CAN_controlData;
 struct Dashboard_Wipers_t CAN_wipersData;
 struct Dashboard_NODE_t CAN_nodeData;
+struct EngineLeft_STATIC_TPDO1_t CAN_LeftEngineData;
+struct EngineRight_STATIC_TPDO1_t CAN_RightEngineData;
 
 /*
 * ADC
@@ -55,6 +57,7 @@ struct LED LED_GREEN = {LED_OFF, LED_GREEN_GPIO_Port, LED_GREEN_Pin, 0};
 * Private functions prototypes
 */
 static uint8_t ProcessADC1Data(void);
+void CAN_ProcessReceived(void);
 
 /*
 * Callbacks
@@ -105,6 +108,8 @@ void app_main(void)
     Dashboard_Lights_init(&CAN_lightsData);
     Dashboard_Control_init(&CAN_controlData);
     Dashboard_Wipers_init(&CAN_wipersData);
+    EngineLeft_STATIC_TPDO1_init(&CAN_LeftEngineData);
+    EngineRight_STATIC_TPDO1_init(&CAN_RightEngineData);
  //   CAN_ScheduleNodeFrame(&canScheduler, &CAN_nodeData);
     
     if (HAL_ADCEx_Calibration_Start(&hadc1) != HAL_OK)
@@ -149,8 +154,11 @@ void app_main(void)
 
         if(newGearSelectorState != gearSelectorState)
         {
-            gearSelectorState = newGearSelectorState;
-            CAN_SendControlFrame(&hcan1, &CAN_controlData, gearSelectorState, modeButtonState);
+        	if(0 == CAN_RightEngineData.RightMotorRPM && 0 == CAN_LeftEngineData.LeftMotorRPM)
+        	{
+                gearSelectorState = newGearSelectorState;
+                CAN_SendControlFrame(&hcan1, &CAN_controlData, gearSelectorState, modeButtonState);
+        	}
         }
 
         if(emergencyButtonState != HAL_GPIO_ReadPin(EMERGENCY_PIN_GPIO_Port, EMERGENCY_PIN_Pin))
@@ -161,8 +169,11 @@ void app_main(void)
 
         if(modeButtonState != HAL_GPIO_ReadPin(MODE_PIN_GPIO_Port, MODE_PIN_Pin))
         {
-            modeButtonState = HAL_GPIO_ReadPin(MODE_PIN_GPIO_Port, MODE_PIN_Pin);
-            CAN_SendControlFrame(&hcan1, &CAN_controlData, gearSelectorState, modeButtonState);
+        	if(0 == CAN_RightEngineData.RightMotorRPM && 0 == CAN_LeftEngineData.LeftMotorRPM)
+        	{
+                modeButtonState = HAL_GPIO_ReadPin(MODE_PIN_GPIO_Port, MODE_PIN_Pin);
+                CAN_SendControlFrame(&hcan1, &CAN_controlData, gearSelectorState, modeButtonState);
+        	}
         }
 
         // CAN / DEBUG LED handling
@@ -174,6 +185,8 @@ void app_main(void)
         } else if (LED_RED.state != LED_OFF) {
             LED_ChangeState(&LED_RED, LED_OFF);        // once, on clear
         }
+
+        CAN_ProcessReceived();
         CAN_HandleScheduled(&hcan1, &canScheduler);
         LED_Handle(&LED_GREEN);
         LED_Handle(&LED_RED);
@@ -234,4 +247,27 @@ static uint8_t ProcessADC1Data(void)
     }
     
     return 1; // voltages can be updated now
+}
+
+void CAN_ProcessReceived(void)
+{
+	if(canRxBuffer.count == 0)
+	{
+		return;
+	}
+
+	struct CAN_IncomingMsg msg;
+	CAN_GetLatestMessage(&canRxBuffer, &msg);
+
+	switch(msg.header.StdId)
+	{
+	case ENGINELEFT_STATIC_TPDO1_FRAME_ID:
+		EngineLeft_STATIC_TPDO1_unpack(&CAN_LeftEngineData, msg.data, ENGINELEFT_STATIC_TPDO1_LENGTH);
+		break;
+	case ENGINERIGHT_STATIC_TPDO1_FRAME_ID:
+		EngineRight_STATIC_TPDO1_unpack(&CAN_RightEngineData, msg.data, ENGINERIGHT_STATIC_TPDO1_LENGTH);
+		break;
+	default:
+		break;
+	}
 }
