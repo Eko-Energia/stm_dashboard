@@ -32,12 +32,14 @@ void CAN_Init(CAN_HandleTypeDef *hcanPtr)
 
 	CAN_FilterTypeDef filterConfig;
 
+	/* StdId 0x1A6, mask 0x7FE (LSB don't-care) -> 0x1A6 and 0x1A7.
+	 * bxCAN 32-bit bank places STID[10:0] in FilterIdHigh/FilterMaskIdHigh[15:5]. */
 	filterConfig.FilterBank = 0;
 	filterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
 	filterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
-	filterConfig.FilterIdHigh = 0x0000;
+	filterConfig.FilterIdHigh = (0x1A6u << 5);
 	filterConfig.FilterIdLow = 0x0000;
-	filterConfig.FilterMaskIdHigh = 0x0000;
+	filterConfig.FilterMaskIdHigh = (0x7FEu << 5);
 	filterConfig.FilterMaskIdLow = 0x0000;
 	filterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
 	filterConfig.FilterActivation = ENABLE;
