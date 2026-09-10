@@ -40,7 +40,7 @@ struct EngineRight_STATIC_TPDO1_t CAN_RightEngineData;
 * ADC
 */
 #define ADC_CHANNELS 7
-#define ADC_SAMPLES 10
+#define ADC_SAMPLES 250
 
 volatile static uint16_t ADC_buffer[ADC_CHANNELS] = {0};
 static float ADC_Voltage[ADC_CHANNELS] = {0};
@@ -169,11 +169,11 @@ void app_main(void)
 
         if(modeButtonState != HAL_GPIO_ReadPin(MODE_PIN_GPIO_Port, MODE_PIN_Pin))
         {
-        	if(0 == CAN_RightEngineData.RightMotorRPM && 0 == CAN_LeftEngineData.LeftMotorRPM)
-        	{
-                modeButtonState = HAL_GPIO_ReadPin(MODE_PIN_GPIO_Port, MODE_PIN_Pin);
-                CAN_SendControlFrame(&hcan1, &CAN_controlData, gearSelectorState, modeButtonState);
-        	}
+				if(0 == CAN_RightEngineData.RightMotorRPM && 0 == CAN_LeftEngineData.LeftMotorRPM)
+				{
+					modeButtonState = HAL_GPIO_ReadPin(MODE_PIN_GPIO_Port, MODE_PIN_Pin);
+					CAN_SendControlFrame(&hcan1, &CAN_controlData, gearSelectorState, modeButtonState);
+				}
         }
 
         // CAN / DEBUG LED handling
